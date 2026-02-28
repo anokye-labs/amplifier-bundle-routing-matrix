@@ -1,6 +1,6 @@
 hooks:
   - module: hooks-routing
-    source: routing-matrix:modules/hooks-routing
+    source: git+https://github.com/microsoft/amplifier-bundle-routing-matrix@main#subdirectory=modules/hooks-routing
     config:
       default_matrix: balanced
 
