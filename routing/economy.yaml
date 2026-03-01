@@ -1,3 +1,19 @@
+# Routing Matrix: economy
+#
+# Maps semantic roles to ranked provider/model candidates.
+# The routing hook tries candidates top-to-bottom, using the first
+# that matches an installed provider.
+#
+# Schema:
+#   provider: Module type name (e.g., "anthropic", not "provider-anthropic")
+#   model: Exact model name or glob pattern (e.g., "claude-sonnet-*")
+#   config: Optional model parameters (e.g., reasoning_effort: high)
+#
+# Required roles: "general" and "fast" must be defined in every matrix.
+# All other roles are optional — agents fall back through their model_role list.
+#
+# Curated by Amplifier Foundation team. See docs/MATRIX_CURATOR_GUIDE.md.
+
 name: economy
 description: "Cost-optimized routing. Prefers free tiers and budget models."
 updated: "2026-02-28"
