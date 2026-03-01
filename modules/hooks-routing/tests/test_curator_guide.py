@@ -84,12 +84,14 @@ def _extract_section(content: str, heading: str) -> str:
     try:
         start = content.index(heading)
     except ValueError:
-        msg = f"Heading '{heading}' not found in guide"
-        raise ValueError(msg) from None
+        pytest.fail(f"Heading '{heading}' not found in guide")
     # Find the next heading at the same or higher level
     search_from = start + len(heading)
     end = len(content)
-    for i, line in enumerate(content[search_from:].split("\n")):
+    # splitlines(keepends=True) preserves line endings (\n or \r\n),
+    # so summing len(part) gives exact character offsets without manual +1
+    lines_with_ends = content[search_from:].splitlines(keepends=True)
+    for i, line in enumerate(lines_with_ends):
         stripped = line.lstrip()
         if stripped.startswith("#"):
             line_level = 0
@@ -99,11 +101,7 @@ def _extract_section(content: str, heading: str) -> str:
                 else:
                     break
             if line_level <= level:
-                # Sum byte-lengths of preceding lines + their newline characters
-                # to convert the line index back to a character offset
-                end = search_from + sum(
-                    len(part) + 1 for part in content[search_from:].split("\n")[:i]
-                )
+                end = search_from + sum(len(part) for part in lines_with_ends[:i])
                 break
 
     return content[start:end]
@@ -427,15 +425,19 @@ class TestExpandedChecklist:
     def test_checklist_retains_original_items(self, guide_content: str) -> None:
         """Original checklist items should still be present."""
         section = _extract_section(guide_content, "## Checklist for Matrix Updates")
-        assert "general" in section and "fast" in section
-        assert "updated" in section.lower()
-        assert "provider" in section.lower()
+        assert "general" in section and "fast" in section, (
+            "Checklist should mention 'general' and 'fast' roles"
+        )
+        assert "updated" in section.lower(), (
+            "Checklist should mention updates (e.g., 'updated')"
+        )
+        assert "provider" in section.lower(), "Checklist should mention 'provider'"
         assert (
             "candidates" in section.lower()
             or "preference" in section.lower()
             or "ordered" in section.lower()
-        )
-        assert "config" in section.lower()
+        ), "Checklist should mention candidate ordering or preferences"
+        assert "config" in section.lower(), "Checklist should mention 'config'"
 
 
 # ---------------------------------------------------------------------------
