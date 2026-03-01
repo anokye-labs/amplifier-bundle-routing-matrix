@@ -49,22 +49,28 @@ async def mount(coordinator: Any, config: dict[str, Any] | None = None) -> None:
     else:
         logger.warning("Matrix file not found: %s — routing disabled", matrix_path)
 
-    # --- User overrides from routing config (if any) ---
-    user_overrides: dict[str, Any] = {}
+    # --- Config-driven overrides (injected by CLI via _apply_hook_overrides) ---
+    config_overrides: dict[str, Any] = config.get("overrides", {})
+
+    # --- User overrides from routing capability (if any) ---
+    capability_overrides: dict[str, Any] = {}
     routing_capability = (
         coordinator.get_capability("session.routing")
         if hasattr(coordinator, "get_capability")
         else None
     )
     if routing_capability and isinstance(routing_capability, dict):
-        user_overrides = routing_capability.get("overrides", {})
+        capability_overrides = routing_capability.get("overrides", {})
 
     # --- Compose effective matrix ---
-    effective_matrix: dict[str, Any] = (
-        compose_matrix(base_matrix.get("roles", {}), user_overrides)
-        if base_matrix
-        else {}
-    )
+    # Config overrides first, then capability overrides on top
+    effective_matrix: dict[str, Any] = {}
+    if base_matrix:
+        effective_matrix = compose_matrix(
+            base_matrix.get("roles", {}), config_overrides
+        )
+        if capability_overrides:
+            effective_matrix = compose_matrix(effective_matrix, capability_overrides)
 
     # --- Store in session state (modes pattern) ---
     if hasattr(coordinator, "session_state"):

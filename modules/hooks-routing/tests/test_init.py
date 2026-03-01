@@ -5,7 +5,7 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -137,7 +137,10 @@ class TestMount:
             # This is tricky — let's use a different approach
 
         # Better: just patch the path traversal result directly
-        await mount(coordinator, config={"default_matrix": "balanced", "_bundle_root": str(bundle_root)})
+        await mount(
+            coordinator,
+            config={"default_matrix": "balanced", "_bundle_root": str(bundle_root)},
+        )
 
         # Should have registered two hooks
         assert coordinator.hooks.register.call_count == 2
@@ -160,6 +163,61 @@ class TestMount:
         # Should still register hooks (graceful degradation)
         if hasattr(coordinator, "hooks"):
             assert coordinator.hooks.register.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_mount_with_config_overrides(self, tmp_path: Path) -> None:
+        """Config dict overrides are composed on top of the base matrix."""
+        bundle_root = tmp_path / "bundle"
+        routing_dir = bundle_root / "routing"
+        routing_dir.mkdir(parents=True)
+        content = textwrap.dedent("""\
+            name: balanced
+            description: "Test balanced"
+            updated: "2026-01-01"
+            roles:
+              general:
+                description: "General purpose"
+                candidates:
+                  - provider: anthropic
+                    model: claude-sonnet-4-20250514
+              fast:
+                description: "Fast tasks"
+                candidates:
+                  - provider: openai
+                    model: gpt-4o-mini
+        """)
+        (routing_dir / "balanced.yaml").write_text(content)
+
+        coordinator = _make_coordinator()
+
+        # Pass overrides in config dict — this is how the CLI injects user
+        # routing preferences via _apply_hook_overrides().
+        config_overrides = {
+            "fast": {
+                "description": "Fast tasks",
+                "candidates": [
+                    {"provider": "anthropic", "model": "claude-haiku-3"},
+                ],
+            },
+        }
+        await mount(
+            coordinator,
+            config={
+                "default_matrix": "balanced",
+                "_bundle_root": str(bundle_root),
+                "overrides": config_overrides,
+            },
+        )
+
+        # The effective matrix should have the override applied to "fast"
+        stored = coordinator.session_state["routing_matrix"]
+        assert stored["roles"]["fast"]["candidates"] == [
+            {"provider": "anthropic", "model": "claude-haiku-3"},
+        ]
+        # "general" should remain unchanged from the base matrix
+        assert stored["roles"]["general"]["candidates"] == [
+            {"provider": "anthropic", "model": "claude-sonnet-4-20250514"},
+        ]
 
     @pytest.mark.asyncio
     async def test_mount_stores_session_state(self, tmp_path: Path) -> None:
@@ -186,7 +244,10 @@ class TestMount:
         (routing_dir / "balanced.yaml").write_text(content)
 
         coordinator = _make_coordinator()
-        await mount(coordinator, config={"default_matrix": "balanced", "_bundle_root": str(bundle_root)})
+        await mount(
+            coordinator,
+            config={"default_matrix": "balanced", "_bundle_root": str(bundle_root)},
+        )
 
         assert "routing_matrix" in coordinator.session_state
         assert coordinator.session_state["routing_matrix"]["name"] == "balanced"
@@ -236,7 +297,10 @@ class TestSessionStartHook:
         providers = {"provider-anthropic": MagicMock(), "provider-openai": MagicMock()}
         coordinator = _make_coordinator(providers=providers, agents=agents)
 
-        await mount(coordinator, config={"default_matrix": "balanced", "_bundle_root": str(bundle_root)})
+        await mount(
+            coordinator,
+            config={"default_matrix": "balanced", "_bundle_root": str(bundle_root)},
+        )
 
         # Extract the session:start handler
         calls = coordinator.hooks.register.call_args_list
@@ -288,7 +352,10 @@ class TestProviderRequestHook:
         (routing_dir / "balanced.yaml").write_text(content)
 
         coordinator = _make_coordinator()
-        await mount(coordinator, config={"default_matrix": "balanced", "_bundle_root": str(bundle_root)})
+        await mount(
+            coordinator,
+            config={"default_matrix": "balanced", "_bundle_root": str(bundle_root)},
+        )
 
         # Extract the provider:request handler
         calls = coordinator.hooks.register.call_args_list
