@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from amplifier_module_hooks_routing.resolver import find_provider_by_type, resolve_model_role
+from amplifier_module_hooks_routing.resolver import (
+    find_provider_by_type,
+    resolve_model_role,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -149,8 +151,8 @@ class TestResolveModelRole:
         """Candidate with config has it in result."""
         providers = {"provider-anthropic": _make_provider()}
         roles = {
-            "planning": {
-                "description": "Planning",
+            "reasoning": {
+                "description": "Reasoning",
                 "candidates": [
                     {
                         "provider": "anthropic",
@@ -161,7 +163,7 @@ class TestResolveModelRole:
             },
         }
 
-        result = await resolve_model_role(["planning"], roles, providers)
+        result = await resolve_model_role(["reasoning"], roles, providers)
 
         assert len(result) == 1
         assert result[0]["config"] == {"reasoning_effort": "high"}
@@ -211,9 +213,7 @@ class TestResolveModelRole:
     async def test_resolve_glob_no_match_skips(self) -> None:
         """Glob pattern that matches nothing skips to next candidate."""
         providers = {
-            "provider-anthropic": _make_provider(
-                models=["claude-haiku-3-20240307"]
-            ),
+            "provider-anthropic": _make_provider(models=["claude-haiku-3-20240307"]),
             "provider-openai": _make_provider(),
         }
         roles = {
